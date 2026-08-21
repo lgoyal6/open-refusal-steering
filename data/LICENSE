@@ -1,0 +1,28 @@
+Licences for the files in this directory
+=======================================
+
+The code in this repository is Apache-2.0 (see ../LICENSE). The data files here
+are licensed separately, so that the prompt sets can be reused without taking on
+a code licence.
+
+over_refusal_100.jsonl
+contrastive_pairs.jsonl
+CONSTRUCTION.md
+----------------------
+Creative Commons Attribution 4.0 International (CC BY 4.0).
+Full text: https://creativecommons.org/licenses/by/4.0/legalcode
+
+  "open-refusal-steering benign over-refusal set" by Laksh Goyal, CC BY 4.0.
+  Source: https://github.com/lgoyal6/open-refusal-steering
+
+You may copy, redistribute, remix and build on these files for any purpose,
+including commercially, provided you give attribution. Reuse of the prompt set
+in other evaluations is the reason it is here.
+
+ppl_corpus.txt
+--------------
+Public domain. Excerpted from Charles Darwin, "On the Origin of Species"
+(Project Gutenberg eBook #2009), which is in the public domain in the United
+States. The Project Gutenberg header and licence trailer have been stripped, so
+no Project Gutenberg trademark terms attach to this file; it is plain
+public-domain prose.

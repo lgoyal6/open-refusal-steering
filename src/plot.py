@@ -1,10 +1,12 @@
-"""Plot the steering tradeoff curve from results/sweep.csv.
+"""Plot the steering tradeoff curve from a sweep CSV in results/.
 
-    python src/plot.py
+    python src/plot.py                              # plots results/sweep.csv, i.e. your run
+    python src/plot.py --csv sweep_partial_n100.csv  # reproduces the committed figure
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import pathlib
 
@@ -22,7 +24,18 @@ GREY = "#8a8a8a"
 
 
 def main() -> None:
-    with open(RESULTS / "sweep_partial_n100.csv", encoding="utf-8") as fh:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--csv", default="sweep.csv",
+                    help="filename inside results/ to plot (default: your own sweep run)")
+    args = ap.parse_args()
+
+    src = RESULTS / args.csv
+    if not src.exists():
+        raise SystemExit(
+            f"{src} not found. Run src/run_sweep.py first, or pass "
+            f"--csv sweep_partial_n100.csv to plot the committed data."
+        )
+    with open(src, encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
 
     alpha = [float(r["alpha"]) for r in rows]

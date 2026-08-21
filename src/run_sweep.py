@@ -128,6 +128,7 @@ def main() -> None:
 
     base = rows[0]
     for row in rows:
+        row["ppl_x_baseline"] = round(row["perplexity"] / base["perplexity"], 2)
         row["ppl_delta_pct"] = round(100.0 * (row["perplexity"] - base["perplexity"]) / base["perplexity"], 2)
         row["latency_overhead_pct"] = round(
             100.0 * (row["ms_per_token"] - base["ms_per_token"]) / base["ms_per_token"], 2)
