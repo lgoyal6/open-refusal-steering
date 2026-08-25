@@ -119,6 +119,49 @@ response rate costs. This repo measures four axes at every alpha:
 | degenerate rate | fluent-looking loops that a refusal check scores as success |
 | ms per token | the real-time claim |
 
+## The method
+
+The intervention is the paper's, verbatim: `h' = h - alpha * (h . v_censor) * v_censor`.
+Everything else here exists to make that one line checkable.
+
+```mermaid
+flowchart LR
+  PAIRS[("data/contrastive_pairs.jsonl<br/>released, the paper's were not")] --> DIR["difference in mean activations<br/>at the chosen layer"]
+  DIR --> V[("results/direction.json<br/>v_censor, unit norm")]
+  V --> STEER["steering.py<br/>h' = h - alpha (h . v) v<br/>applied at every forward pass"]
+  ALPHA(["alpha sweep"]) --> STEER
+  STEER --> GEN["greedy generation, seed 0<br/>Qwen2.5-0.5B-Instruct, CPU"]
+  BENIGN[("over_refusal_100.jsonl<br/>benign but over-refused")] --> GEN
+  ILLICIT[("8-prompt held-out<br/>illicit control")] --> GEN
+  PPL[("ppl_corpus.txt")] --> GEN
+  GEN --> M["metrics.py<br/>response rate, coherence,<br/>degeneracy, perplexity"]
+  M --> SWEEP[("results/*.csv")]
+  SWEEP --> PLOT["plot.py"]
+
+  style ILLICIT fill:#b62324,color:#fff
+```
+
+The illicit control is the part most steering write-ups leave out. Without it you
+cannot tell "the model stopped over-refusing" from "the model stopped refusing".
+
+## Why alpha 3.0 looks perfect and is not
+
+```mermaid
+flowchart TD
+  A["alpha = 3.0"] --> B["benign response 100%"]
+  A --> C["coherent 100%"]
+  A --> D["degenerate 0%"]
+  B & C & D --> E["every behavioural metric reads perfect"]
+  A --> F["perplexity 10,850,402"]
+  F --> G["the model is producing<br/>fluent-shaped noise"]
+  E --> H{"check that a behavioural<br/>metric cannot see"}
+  G --> H
+  H --> I["only perplexity catches it"]
+
+  style F fill:#b62324,color:#fff
+  style I fill:#1f6feb,color:#fff
+```
+
 ## Run it
 
 Needs ~2GB RAM and about 40 minutes on an M-series CPU. No GPU, no API keys, no dataset
