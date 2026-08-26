@@ -11,7 +11,21 @@
 </head>
 <body>
 
-<header class="gut">
+<nav class="topbar">
+  <a class="brand" href="https://lakshgoyal.com">Laksh Goyal<span>.</span></a>
+  <div class="navlinks">
+    <a href="https://github.com/lgoyal6/open-refusal-steering">GitHub</a>
+    <a href="https://www.linkedin.com/in/lakshgoyal">LinkedIn</a>
+  </div>
+</nav>
+<nav class="tabs" aria-label="Sections">
+    <a href="#sec-home">Home</a>
+    <a href="#sec-dial">The dial</a>
+    <a href="#sec-output">The output</a>
+    <a href="#sec-limits">Limits</a>
+</nav>
+
+<header id="sec-home" class="gut">
   <div>
     <div class="eyebrow">lgoyal6 / open-refusal-steering</div>
     <h1>open&#8209;refusal&#8209;steering<span class="dot">.</span></h1>
@@ -34,7 +48,7 @@
   </dl>
 </header>
 
-<section class="gut">
+<section class="gut" id="sec-dial">
   <div class="eyebrow">Figure 1</div>
   <h2>Turning the dial up</h2>
   <p class="lead">
@@ -89,7 +103,7 @@
   </div>
 </section>
 
-<section class="gut">
+<section class="gut" id="sec-output">
   <div class="eyebrow">Figure 2</div>
   <h2>What the classifier called an answer</h2>
   <p class="lead">
@@ -133,7 +147,7 @@
   </div>
 </section>
 
-<section class="gut">
+<section class="gut" id="sec-limits">
   <div class="eyebrow">Figure 3</div>
   <h2>Where it loses</h2>
   <ul class="map">
@@ -176,5 +190,6 @@
 </footer>
 
 <script src="app.js"></script>
+<script src="nav.js"></script>
 </body>
 </html>
