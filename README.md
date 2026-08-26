@@ -17,6 +17,10 @@ tax, and the curve between them.
 
 ---
 
+**[See it: lgoyal6.github.io/open-refusal-steering](https://lgoyal6.github.io/open-refusal-steering/)**
+- drag the intervention strength and watch every behavioural metric read perfect at the point
+the model stops producing language.
+
 ## The short version
 
 **What I noticed.** CTGT published a steering result on DeepSeek-R1 claiming a jump from 32%
