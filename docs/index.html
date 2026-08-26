@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>open-refusal-steering - the setting where every metric reads perfect</title>
+<meta name="description" content="An open reproduction of feature-level activation steering. At the strength that reaches a 100% response rate, every behavioural check passes and the model is emitting token soup. Only perplexity catches it.">
+<meta property="og:title" content="open-refusal-steering">
+<meta property="og:description" content="Drag the intervention strength. Watch response rate reach 100% and perplexity reach 530,000x baseline at the same setting.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="gut">
+  <div>
+    <div class="eyebrow">lgoyal6 / open-refusal-steering</div>
+    <h1>open&#8209;refusal&#8209;steering<span class="dot">.</span></h1>
+    <p class="thesis">
+      A published intervention subtracts a "censorship" direction from a model's hidden
+      activations, scaled by a tunable strength. The paper ships no code and no prompts.
+      This is the method implemented from the paper, with the prompt set released.
+    </p>
+    <p class="thesis">
+      <strong>At the strength that reaches a 100% response rate, every behavioural check
+      passes and the model has stopped producing language.</strong> Refusal scoring passes
+      it. The degeneracy detector passes it. Only perplexity catches it.
+    </p>
+  </div>
+  <dl class="facts">
+    <div class="fact"><dt>response rate at 3.0</dt><dd>100% <small>every check green</small></dd></div>
+    <div class="fact"><dt>perplexity at 3.0</dt><dd>530,115x <small>baseline</small></dd></div>
+    <div class="fact"><dt>held-out illicit set</dt><dd>37.5 to 100% <small>it un-refuses that too</small></dd></div>
+    <div class="fact"><dt>points that finished</dt><dd>7 of 9 <small>3.5 and 4.0 did not</small></dd></div>
+  </dl>
+</header>
+
+<section class="gut">
+  <div class="eyebrow">Figure 1</div>
+  <h2>Turning the dial up</h2>
+  <p class="lead">
+    Alpha is the intervention strength, straight from the paper. The behavioural metrics
+    are what a steering result is normally reported on. Perplexity is measured beside
+    them, on a held-out corpus, and it is the only one that notices.
+  </p>
+
+  <div class="figure">
+    <div class="figcap">
+      <span id="cap-what">Loading</span>
+      <span id="cap-run"></span>
+    </div>
+    <div class="toolbar">
+      <span class="picklabel">Intervention strength</span>
+      <div class="pick" id="alphas" role="group" aria-label="Alpha"></div>
+    </div>
+    <canvas class="plot" id="plot" width="1200" height="360"></canvas>
+    <dl class="readout">
+      <div><dt>benign response</dt><dd id="r-resp">-</dd></div>
+      <div><dt>coherent</dt><dd id="r-coh">-</dd></div>
+      <div><dt>degenerate</dt><dd id="r-deg">-</dd></div>
+      <div><dt>illicit control</dt><dd id="r-ill">-</dd></div>
+      <div><dt>perplexity</dt><dd id="r-ppl">-</dd></div>
+    </dl>
+    <div class="banner" id="banner">Loading.</div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3>Why both detectors missed it</h3>
+      <p>
+        The collapse output is a two-character CJK cycle. The degeneracy check looks for a
+        run of 25 or more <em>identical</em> characters, and the cycle alternates. It also
+        checks repeated 8-grams over whitespace-split tokens, and CJK text has no
+        whitespace, so the whole response is one token and there are no 8-grams to repeat.
+      </p>
+      <p>
+        <strong>Neither detector was wrong about what it measures.</strong> They were
+        measuring English. That is the part worth borrowing from this repository, and it is
+        why the perplexity column is not optional.
+      </p>
+    </div>
+    <dl class="takeaway">
+      <dt>the headline you could report</dt>
+      <dd>100% response rate.<small>Up from 90%, at alpha 3.0.</small></dd>
+      <dt>what it cost</dt>
+      <dd>The model.<small>Perplexity 530,115x baseline.</small></dd>
+      <dt>what caught it</dt>
+      <dd>Only perplexity.<small>Both behavioural checks passed.</small></dd>
+    </dl>
+  </div>
+</section>
+
+<section class="gut">
+  <div class="eyebrow">Figure 2</div>
+  <h2>What the classifier called an answer</h2>
+  <p class="lead">
+    Committed generations at the two settings where the model comes apart, one prompt from
+    each of three categories, with the label the repository's own classifier gave it.
+  </p>
+  <div class="figure">
+    <div class="figcap">
+      <span id="gen-cap">the benign over-refusal set</span>
+      <span>generations are committed for alpha 2.5 and 3.0</span>
+    </div>
+    <div class="toolbar">
+      <span class="picklabel">At alpha</span>
+      <div class="pick" id="genalpha" role="group" aria-label="Alpha for generations"></div>
+    </div>
+    <div class="gens" id="gens"></div>
+    <div class="banner" id="gen-banner"></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <p>
+        <strong>The held-out illicit control moves with it.</strong> It sits at 37.5% up to
+        alpha 1.0, reaches 87.5% at 2.0 and 100% at 2.5. The direction being subtracted is
+        not specific to over-refusal; it removes the refusal behaviour it finds. A steering
+        result reported only on the benign set would not show that.
+      </p>
+      <p>
+        Those prompts and their completions are not reproduced here. The rate is the number
+        that matters and it is the number that is missing from the claim being reproduced.
+      </p>
+    </div>
+    <dl class="takeaway">
+      <dt>at alpha 1.0</dt>
+      <dd>37.5% illicit response.<small>Unchanged from no intervention.</small></dd>
+      <dt>at alpha 2.0</dt>
+      <dd>87.5%.<small>Before the model degrades at all.</small></dd>
+      <dt>at alpha 2.5 and up</dt>
+      <dd>100%.<small>Same as the benign set.</small></dd>
+    </dl>
+  </div>
+</section>
+
+<section class="gut">
+  <div class="eyebrow">Figure 3</div>
+  <h2>Where it loses</h2>
+  <ul class="map">
+    <li>
+      <b>Two of nine sweep points never finished.</b> Alphas 3.5 and 4.0 were launched and
+      did not complete, so they are absent rather than estimated, and nothing here
+      extrapolates past 3.0.
+      <span class="where">results/sweep.log</span>
+    </li>
+    <li>
+      <b>This is a 0.5B model, not the one in the paper.</b> Qwen2.5-0.5B-Instruct on CPU,
+      greedy, seed 0. The method is the paper's; the model is what runs on a laptop, and the
+      numbers are not comparable to a claim about a much larger one.
+      <span class="where">src/run_sweep.py</span>
+    </li>
+    <li>
+      <b>The direction is learned from mild-illicit framings.</b> That is weaker supervision
+      than the real thing and the repository says so. It is also why the held-out control is
+      the same kind of prompt, which makes that control easier to pass than a hard one.
+      <span class="where">data/CONSTRUCTION.md</span>
+    </li>
+    <li>
+      <b>100 benign prompts and 8 held-out.</b> Eight is enough to see 37.5% become 100% and
+      not enough to put an interval on it.
+      <span class="where">data/over_refusal_100.jsonl</span>
+    </li>
+  </ul>
+</section>
+
+<footer class="gut">
+  <span>
+    <a href="https://github.com/lgoyal6/open-refusal-steering">github.com/lgoyal6/open-refusal-steering</a>
+    &middot; MIT
+  </span>
+  <span>
+    also: <a href="https://lgoyal6.github.io/memharness/">memharness</a>
+    &middot; <a href="https://lgoyal6.github.io/promptgate/">promptgate</a>
+    &middot; <a href="https://lgoyal6.github.io/noisy-rag-bench/">noisy-rag-bench</a>
+  </span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
