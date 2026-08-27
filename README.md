@@ -1,3 +1,10 @@
+<a href="https://lgoyal6.github.io/open-refusal-steering/">
+  <img alt="open-refusal-steering - open the live demo" src="docs/og.png">
+</a>
+
+**[Open the live demo](https://lgoyal6.github.io/open-refusal-steering/)** - Drag the intervention strength and watch every behavioural metric read perfect at the point
+the model stops producing language.
+
 # open-refusal-steering
 
 An open, end-to-end reproduction of feature-level activation steering, on a model that runs
@@ -16,10 +23,6 @@ the three things a steering claim cannot be checked without: the prompts, the ca
 tax, and the curve between them.
 
 ---
-
-**[See it: lgoyal6.github.io/open-refusal-steering](https://lgoyal6.github.io/open-refusal-steering/)**
-- drag the intervention strength and watch every behavioural metric read perfect at the point
-the model stops producing language.
 
 ## The short version
 
