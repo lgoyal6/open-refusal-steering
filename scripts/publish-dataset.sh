@@ -9,7 +9,7 @@
 # against the run rather than taken on trust.
 set -euo pipefail
 
-repo="${1:-lgoyal6/open-refusal-steering}"
+repo="${1:-lgoyal/open-refusal-steering}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 hf="${HF:-hf}"
 
