@@ -1,0 +1,145 @@
+{
+  "controls": {
+    "checkpoint_recovery": "SFT checkpoint-2 resume",
+    "identical_pair_margin": 0.0,
+    "overlap_detector": "covered by test_dpo_prepare.py",
+    "tiny_overfit": "SFT first-versus-last loss"
+  },
+  "environment": {
+    "cost_usd": 0,
+    "device": "Apple Metal (MPS)",
+    "platform": "macOS-26.5.2-arm64-arm-64bit",
+    "shared_machine": true,
+    "torch": "2.8.0"
+  },
+  "evaluation": {
+    "base": {
+      "arc_easy_accuracy": 0.1875,
+      "benign_over_refusal": 0.0,
+      "generation_counts": {
+        "benign": 4,
+        "illicit": 4
+      },
+      "generation_sha256": "c983b326732a2e2c62b2ff7e6f6a0838f9742c3a6e40c2721bac7e947178b940",
+      "heldout_chosen_nll": 2.785833165049553,
+      "heldout_perplexity": 16.213320623053747,
+      "heldout_preference_accuracy": 0.5,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "response_drift_abs_nll_from_base": 0.0
+    },
+    "dpo": {
+      "arc_easy_accuracy": 0.1875,
+      "benign_over_refusal": 0.0,
+      "generation_counts": {
+        "benign": 4,
+        "illicit": 4
+      },
+      "generation_sha256": "382fba8aea4e071e745c686aef42a99ffd70ce00f03aeec50e7aa41142260450",
+      "heldout_chosen_nll": 2.7843778282403946,
+      "heldout_perplexity": 16.18974194237493,
+      "heldout_preference_accuracy": 0.5,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "response_drift_abs_nll_from_base": 0.0014553368091583252
+    },
+    "sft": {
+      "arc_easy_accuracy": 0.1875,
+      "benign_over_refusal": 0.0,
+      "generation_counts": {
+        "benign": 4,
+        "illicit": 4
+      },
+      "generation_sha256": "f2e64b3e27adeff8d4a2e386e79222a78d8ec2800569bcf6889a133ea1a9af48",
+      "heldout_chosen_nll": 2.7770041823387146,
+      "heldout_perplexity": 16.07080356169986,
+      "heldout_preference_accuracy": 0.5,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "response_drift_abs_nll_from_base": 0.008828982710838318
+    },
+    "shuffled": {
+      "arc_easy_accuracy": 0.1875,
+      "benign_over_refusal": 0.0,
+      "generation_counts": {
+        "benign": 4,
+        "illicit": 4
+      },
+      "generation_sha256": "23d6efff00106295ff6282da2a6ab301b9c93aca180f3318e55bb73de9d3592b",
+      "heldout_chosen_nll": 2.7861513942480087,
+      "heldout_perplexity": 16.21848099612707,
+      "heldout_preference_accuracy": 0.5,
+      "refusal_precision": 0.0,
+      "refusal_recall": 0.0,
+      "response_drift_abs_nll_from_base": 0.00031822919845581055
+    }
+  },
+  "peak_rss_mb": 3311.21875,
+  "seed_sensitivity": [
+    {
+      "loss_first": 0.6932,
+      "loss_last": 0.6935,
+      "seed": 23,
+      "shuffled_labels": false,
+      "steps": 2,
+      "tokens": 146,
+      "wall_seconds": 2.068043040984776
+    },
+    {
+      "loss_first": 0.6931,
+      "loss_last": 0.6924,
+      "seed": 42,
+      "shuffled_labels": false,
+      "steps": 2,
+      "tokens": 146,
+      "wall_seconds": 1.91658141699736
+    }
+  ],
+  "training": {
+    "dpo": {
+      "loss_first": 0.6931,
+      "loss_last": 0.694,
+      "seed": 17,
+      "shuffled_labels": false,
+      "steps": 4,
+      "tokens": 352,
+      "wall_seconds": 2.9726545409939718
+    },
+    "sft": {
+      "checkpoint_resumed": false,
+      "loss_first": 2.9838,
+      "loss_last": 4.063,
+      "tokens": 310,
+      "wall_seconds": 2.6353972090000752
+    },
+    "shuffled": {
+      "loss_first": 0.6932,
+      "loss_last": 0.6955,
+      "seed": 17,
+      "shuffled_labels": true,
+      "steps": 4,
+      "tokens": 352,
+      "wall_seconds": 2.619186500000069
+    }
+  },
+  "training_controls": {
+    "checkpoint_interrupted": {
+      "loss_first": 3.4189,
+      "loss_last": 3.2722,
+      "resumed": false,
+      "steps": 2
+    },
+    "checkpoint_resumed": {
+      "loss_first": 3.4189,
+      "loss_last": 3.2056,
+      "resumed": true,
+      "steps": 4
+    },
+    "tiny_overfit": {
+      "loss_first": 3.4189,
+      "loss_last": 2.6905,
+      "resumed": false,
+      "steps": 8
+    }
+  }
+}
