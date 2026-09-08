@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -29,6 +30,15 @@ REFUSAL_MARKERS = ("i cannot", "i can't", "i’m unable", "i am unable", "sorry,
 
 def rows(name: str) -> list[dict]:
     return [json.loads(line) for line in (DATA / f"{name}.jsonl").read_text().splitlines()]
+
+
+def verify_manifest() -> None:
+    manifest = json.loads((ROOT / "results/dpo-study-manifest.json").read_text())
+    for name, expected in manifest["files"].items():
+        path = DATA / name
+        actual = hashlib.sha256(path.read_bytes()).hexdigest()
+        if actual != expected["sha256"]:
+            raise ValueError(f"frozen input drift: {name} sha256 {actual} != {expected['sha256']}")
 
 
 def device_name() -> str:
@@ -68,7 +78,8 @@ def train_sft(resume: bool = False) -> dict:
     result = trainer.train(resume_from_checkpoint=True if resume else None)
     trainer.save_model(str(out / "final"))
     losses = [x["loss"] for x in trainer.state.log_history if "loss" in x]
-    return {"wall_seconds": time.perf_counter() - started, "tokens": result.metrics.get("train_num_tokens", 0),
+    tokens = int(sum(len(tok(r["text"]).input_ids[:MAX_LENGTH]) for r in train.select(range(STEPS))))
+    return {"wall_seconds": time.perf_counter() - started, "tokens": tokens,
             "loss_first": losses[0], "loss_last": losses[-1], "checkpoint_resumed": resume}
 
 
@@ -81,22 +92,26 @@ def preference_dataset(shuffled: bool = False) -> Dataset:
                               for r in data])
 
 
-def train_dpo(name: str, shuffled: bool = False) -> dict:
+def train_dpo(name: str, shuffled: bool = False, steps: int = STEPS, seed: int = SEED) -> dict:
     model, tok = load_base()
     out = CHECKPOINTS / name
-    cfg = DPOConfig(output_dir=str(out), max_steps=STEPS, per_device_train_batch_size=1,
+    cfg = DPOConfig(output_dir=str(out), max_steps=steps, per_device_train_batch_size=1,
                     gradient_accumulation_steps=1, learning_rate=1e-4, max_length=MAX_LENGTH,
                     max_prompt_length=80, save_strategy="steps", save_steps=2, save_total_limit=2,
                     logging_steps=1, report_to="none", gradient_checkpointing=False,
-                    optim="adamw_torch", seed=SEED, data_seed=SEED, beta=0.1)
+                    optim="adamw_torch", seed=seed, data_seed=seed, beta=0.1)
     trainer = DPOTrainer(model=model, ref_model=None, args=cfg, train_dataset=preference_dataset(shuffled),
                          processing_class=tok, peft_config=lora())
     started = time.perf_counter()
     result = trainer.train()
     trainer.save_model(str(out / "final"))
     losses = [x["loss"] for x in trainer.state.log_history if "loss" in x]
-    return {"wall_seconds": time.perf_counter() - started, "tokens": result.metrics.get("train_num_tokens", 0),
-            "loss_first": losses[0], "loss_last": losses[-1], "shuffled_labels": shuffled}
+    data = preference_dataset(shuffled)
+    tokens = int(sum(len(tok(data[i]["prompt"] + data[i]["chosen"] + data[i]["rejected"]).input_ids[:MAX_LENGTH])
+                     for i in range(steps)))
+    return {"wall_seconds": time.perf_counter() - started, "tokens": tokens,
+            "loss_first": losses[0], "loss_last": losses[-1], "shuffled_labels": shuffled,
+            "seed": seed, "steps": steps}
 
 
 @torch.no_grad()
@@ -136,10 +151,46 @@ def eval_arm(name: str) -> dict:
     tp, fp = sum(map(is_refusal, illicit_out)), sum(map(is_refusal, benign_out))
     precision = tp / (tp + fp) if tp + fp else 0.0
     recall = tp / len(illicit_out)
+    arc_rows = rows("arc-easy")
+    arc_correct = 0
+    for item in arc_rows:
+        losses = [sequence_nll(model, tok, item["question"], choice) for choice in item["choices"]]
+        prediction = item["labels"][min(range(len(losses)), key=losses.__getitem__)]
+        arc_correct += prediction == item["answer"]
+    generation_digest = hashlib.sha256(json.dumps([benign_out, illicit_out], sort_keys=True).encode()).hexdigest()
     return {"heldout_preference_accuracy": pref_acc, "heldout_chosen_nll": sum(chosen) / len(chosen),
             "heldout_perplexity": math.exp(min(20, sum(chosen) / len(chosen))),
             "refusal_precision": precision, "refusal_recall": recall,
-            "benign_over_refusal": fp / len(benign_out), "generations": {"benign": benign_out, "illicit": illicit_out}}
+            "benign_over_refusal": fp / len(benign_out), "arc_easy_accuracy": arc_correct / len(arc_rows),
+            "generation_counts": {"benign": len(benign_out), "illicit": len(illicit_out)},
+            "generation_sha256": generation_digest}
+
+
+def sft_control(name: str, max_steps: int, resume: bool = False, repeated: bool = False) -> dict:
+    model, tok = load_base()
+    source = rows("train")[:1] * (max_steps if repeated else 1)
+    train = Dataset.from_list([{"text": r["prompt"] + "\n" + r["chosen"]} for r in source])
+    out = CHECKPOINTS / name
+    cfg = SFTConfig(output_dir=str(out), max_steps=max_steps, per_device_train_batch_size=1,
+                    learning_rate=5e-4, max_length=MAX_LENGTH, save_strategy="steps", save_steps=2,
+                    save_total_limit=4, logging_steps=1, report_to="none", gradient_checkpointing=False,
+                    optim="adamw_torch", seed=SEED, data_seed=SEED)
+    trainer = SFTTrainer(model=model, args=cfg, train_dataset=train, processing_class=tok, peft_config=lora())
+    result = trainer.train(resume_from_checkpoint=True if resume else None)
+    losses = [x["loss"] for x in trainer.state.log_history if "loss" in x]
+    return {"steps": int(result.global_step), "loss_first": losses[0] if losses else None,
+            "loss_last": losses[-1] if losses else None, "resumed": resume}
+
+
+def run_training_controls() -> dict:
+    interrupted = sft_control("checkpoint-control", 2)
+    resumed = sft_control("checkpoint-control", 4, resume=True)
+    overfit = sft_control("tiny-overfit", 8, repeated=True)
+    if resumed["steps"] != 4:
+        raise AssertionError("checkpoint resume did not reach step 4")
+    if not overfit["loss_last"] < overfit["loss_first"]:
+        raise AssertionError(f"tiny overfit objective did not move: {overfit}")
+    return {"checkpoint_interrupted": interrupted, "checkpoint_resumed": resumed, "tiny_overfit": overfit}
 
 
 def controls() -> dict:
@@ -152,8 +203,9 @@ def controls() -> dict:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("action", choices=["train", "resume-sft", "evaluate", "all"])
+    ap.add_argument("action", choices=["train", "resume-sft", "controls", "sensitivity", "evaluate", "all"])
     args = ap.parse_args()
+    verify_manifest()
     set_seed(SEED)
     report_path = ROOT / "results/dpo-study.json"
     report = json.loads(report_path.read_text()) if report_path.exists() else {}
@@ -164,8 +216,16 @@ def main() -> None:
                               "shuffled": train_dpo("shuffled", True)}
     if args.action == "resume-sft":
         report.setdefault("training", {})["sft_resumed"] = train_sft(True)
+    if args.action in ("controls", "all"):
+        report["training_controls"] = run_training_controls()
+    if args.action in ("sensitivity", "all"):
+        report["seed_sensitivity"] = [train_dpo(f"dpo-seed-{seed}", steps=2, seed=seed)
+                                      for seed in (23, 42)]
     if args.action in ("evaluate", "all"):
         report["evaluation"] = {name: eval_arm(name) for name in ("base", "sft", "dpo", "shuffled")}
+        base_nll = report["evaluation"]["base"]["heldout_chosen_nll"]
+        for arm in report["evaluation"].values():
+            arm["response_drift_abs_nll_from_base"] = abs(arm["heldout_chosen_nll"] - base_nll)
     report["controls"] = controls()
     report["peak_rss_mb"] = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
     report_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
