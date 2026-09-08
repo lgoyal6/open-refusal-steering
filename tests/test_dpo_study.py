@@ -15,3 +15,7 @@ def test_shuffled_control_changes_half_the_preferences():
 
 def test_identical_pair_control_has_zero_margin():
     assert MOD.controls()["identical_pair_margin"] == 0.0
+
+
+def test_frozen_manifest_matches_local_inputs():
+    MOD.verify_manifest()
