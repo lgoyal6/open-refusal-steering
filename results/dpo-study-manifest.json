@@ -1,0 +1,37 @@
+{
+  "capability_dataset": {
+    "config": "ARC-Easy",
+    "id": "allenai/ai2_arc",
+    "revision": "210d026faf9955653af8916fad021475a3f00453"
+  },
+  "created_before_training": true,
+  "files": {
+    "arc-easy.jsonl": {
+      "rows": 16,
+      "sha256": "d69ab39701f33422edc974ada5eca5f9d5915515a862b933e0a66fa2b3359123"
+    },
+    "test.jsonl": {
+      "rows": 8,
+      "sha256": "55356be97b8930186c2d4f0a20daf9569596d68f4f24641e1df7645c23258525"
+    },
+    "train.jsonl": {
+      "rows": 24,
+      "sha256": "845ed1ef9e31c20867a540d1f3b08dec687d992dd39bd47f147164409a6b0950"
+    },
+    "validation.jsonl": {
+      "rows": 8,
+      "sha256": "b21d791bc57cbc107742d628b90627458538f2216c38c986d41e86c4c79613da"
+    }
+  },
+  "model": {
+    "id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "preference_dataset": {
+    "config": "harmless-base",
+    "id": "Anthropic/hh-rlhf",
+    "revision": "09be8c5bbc57cb3887f3a9732ad6aa7ec602a1fa"
+  },
+  "seed": 20260908,
+  "selection": "seeded shuffle after single-turn, same-prompt, unique-prompt, <=1800-char filter"
+}
