@@ -7,6 +7,22 @@ the model stops producing language.
 
 # open-refusal-steering
 
+## Small DPO post-training study
+
+`scripts/run-dpo-study.sh` freezes pinned public preference and ARC-Easy
+splits, verifies their hashes and leakage controls, then runs four local arms on
+Qwen2.5-0.5B-Instruct: untouched base, LoRA SFT, LoRA DPO, and a shuffled-label
+DPO control. All arms keep the tokenizer, prompt format, decoding, example
+budget, and evaluation code fixed. The script also runs an identical-pair
+control, a tiny overfit proof, a controlled checkpoint stop/resume, and two
+short seed-sensitivity checks.
+
+The machine-readable result is `results/dpo-study.json`. This is DPO, not PPO
+or RLHF; no reward model is trained. The checked-in run uses 24 training pairs
+and deliberately small four-step arms so it can execute locally at zero cost.
+It is a training-path and negative-result study, not evidence of model-quality
+improvement. Held-out results are reported without tuning.
+
 An open, end-to-end reproduction of feature-level activation steering, on a model that runs
 on a laptop CPU, with **the prompt set released**.
 
