@@ -677,12 +677,30 @@ def table(base: dict, per_arm: dict) -> str:
 
 
 def clause_table(gate: dict) -> str:
-    lines = ["| clause | threshold | measured | verdict |", "|---|---|---|---|"]
+    """Show the quantity each threshold actually applies to, not the raw metric."""
+    def numbers(values) -> str:
+        return ", ".join(f"{x:+.3f}" if isinstance(x, float) else str(x) for x in values)
+
+    lines = ["| clause | threshold | measured (per seed) | verdict |", "|---|---|---|---|"]
     for name, clause in gate["clauses"].items():
-        measured = clause.get("per_seed", clause.get("per_seed_improvement"))
-        if isinstance(measured, list):
-            measured = ", ".join(f"{x:.3f}" if isinstance(x, float) else str(x) for x in measured)
-        lines.append(f"| {name} | {clause['threshold']} | {measured} | "
+        if "per_seed_improvement" in clause:
+            measured = f"base {clause['base']:.3f}, improvement {numbers(clause['per_seed_improvement'])}"
+            threshold = f">= +{clause['threshold']}"
+        elif "per_seed_increase" in clause:
+            measured = f"base {clause['base']:.3f}, increase {numbers(clause['per_seed_increase'])}"
+            threshold = f"<= +{clause['threshold']}"
+        elif "per_seed_drop" in clause:
+            measured = f"base {clause['base']:.3f}, drop {numbers(clause['per_seed_drop'])}"
+            threshold = f"<= {clause['threshold']}"
+        elif "per_seed_beats_base_on_preference" in clause:
+            measured = (f"beats base on preference "
+                        f"{clause['per_seed_beats_base_on_preference']}, "
+                        f"on refusal recall {clause['per_seed_beats_base_on_refusal_recall']}")
+            threshold = "all three seeds, both metrics"
+        else:
+            measured = ", ".join(f"{x:.3f}" for x in clause["per_seed"])
+            threshold = clause["threshold"]
+        lines.append(f"| {name} | {threshold} | {measured} | "
                      f"{'PASS' if clause['passed'] else 'FAIL'} |")
     return "\n".join(lines) + "\n"
 
