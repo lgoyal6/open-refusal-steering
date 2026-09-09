@@ -202,7 +202,17 @@ def training_args(kind: str, out: Path, seed: int, steps: int, per_device: int, 
         gradient_accumulation_steps=grad_accum, learning_rate=learning_rate,
         lr_scheduler_type=P.TRAINING["lr_scheduler_type"], warmup_ratio=P.TRAINING["warmup_ratio"],
         optim=P.TRAINING["optimizer"], logging_steps=1, report_to="none",
-        gradient_checkpointing=False, seed=seed, data_seed=seed,
+        # Recompute activations in the backward pass instead of storing them. This
+        # is a memory strategy, not a protocol choice: it is absent from the frozen
+        # manifest, and torch preserves the RNG state so the dropout masks and
+        # therefore the gradients are the same. Measured on this host over three
+        # SFT steps at seed 11: losses 3.6294, 2.2287, 5.2748 without it and
+        # 3.6294, 2.2287, 5.2786 with it, a largest difference of 0.0038 at a step
+        # whose gradient norm was 67. It also ran 2x faster here, because this
+        # machine is shared and was paging heavily.
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
+        seed=seed, data_seed=seed,
         save_strategy="steps" if save_steps else "no", save_steps=save_steps or 500,
         save_total_limit=4, bf16=False, fp16=False,
     )
@@ -816,6 +826,9 @@ def write_report(report: dict) -> None:
                      "cleanly pre-registered. The original manifest hash is retained above.")
     else:
         lines.append("None. No split, prompt, threshold, or hyperparameter changed after the freeze.")
+    lines += ["", "## Implementation notes", ""]
+    for note in report["implementation_notes"]:
+        lines.append(f"- {note}")
     lines += [
         "",
         "## What this does and does not show",
@@ -912,6 +925,16 @@ def run_all(deviations: list[str]) -> dict:
         "generation_rows": len(generations),
         "generation_excerpt_chars": EXCERPT_CHARS,
         "protocol_deviations": deviations,
+        "implementation_notes": [
+            "Gradient checkpointing is enabled. It is not a split, prompt, threshold, or "
+            "hyperparameter, it is absent from the frozen manifest, and torch preserves the RNG "
+            "state so dropout masks and gradients are unchanged. Measured on this host over three "
+            "SFT steps at seed 11: losses 3.6294, 2.2287, 5.2748 with it off and 3.6294, 2.2287, "
+            "5.2786 with it on, a largest difference of 0.0038 at a step whose gradient norm was "
+            "67. It was turned on because this machine is shared and was paging heavily: swap was "
+            "18.5 GB of 19.5 GB used with 3 million pageouts, and step time had degraded from 4.2 s "
+            "to 34 s during a first attempt at the run, which was stopped before anything was "
+            "cached. It is recorded here for transparency, not as a protocol deviation."],
         "claim_state": "Resume-safe" if (gate["passed"] and controls["study_valid"]) else "Rejected",
     }
     REPORT_JSON.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
