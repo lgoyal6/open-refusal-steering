@@ -6,3 +6,4 @@ results/generations.jsonl
 .venv/
 data/dpo-study/
 checkpoints/dpo-study/
+data/posttraining-v2/
