@@ -336,6 +336,9 @@ def completion_logprobs(model, tokenizer, items: list[tuple[str, str]],
     target, pad = device(), tokenizer.pad_token_id
     out: list[tuple[float, int]] = []
     for start in range(0, len(items), batch_size):
+        # same allocator-pool growth as in training: shapes vary per batch
+        if start and (start // batch_size) % 20 == 0:
+            release()
         chunk = items[start:start + batch_size]
         sequences, prompt_lengths = [], []
         for prompt, completion in chunk:
@@ -373,6 +376,8 @@ def generate_batch(model, tokenizer, prompts: list[str], batch_size: int = 8) ->
     outputs: list[str] = []
     try:
         for start in range(0, len(prompts), batch_size):
+            if start and (start // batch_size) % 5 == 0:
+                release()
             chunk = [chat_prompt(tokenizer, p) for p in prompts[start:start + batch_size]]
             encoded = tokenizer(chunk, return_tensors="pt", padding=True, truncation=True,
                                 max_length=P.TRAINING["max_prompt_length"],
