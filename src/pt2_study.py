@@ -70,15 +70,24 @@ def rows(name: str) -> list[dict]:
 
 
 def device() -> torch.device:
+    # CUDA first so the same frozen protocol can execute on an authorized GPU
+    # host; the manifest pins MPS, so a CUDA run is a recorded device deviation
+    # that the results JSON exposes through device_name().
+    if torch.cuda.is_available():
+        return torch.device("cuda")
     return torch.device("mps" if torch.backends.mps.is_available() else "cpu")
 
 
 def release() -> None:
-    if torch.backends.mps.is_available():
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    elif torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
 
 def device_name() -> str:
+    if torch.cuda.is_available():
+        return f"CUDA ({torch.cuda.get_device_name(0)})"
     if torch.backends.mps.is_available():
         return "Apple Metal (MPS)"
     return "CPU"
