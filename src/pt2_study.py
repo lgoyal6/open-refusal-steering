@@ -899,7 +899,10 @@ def write_report(report: dict) -> None:
         f"({report['generation_rows']:,} rows). Each row carries the classifier label computed on the "
         f"**full** generation and only the first {EXCERPT_CHARS} characters of the text, which is exactly "
         f"the span `src/metrics.is_refusal` reads. Full completions to illicit prompts are deliberately "
-        f"not committed.",
+        f"not committed, and neither is the text of the illicit prompts: rows carry the "
+        f"JailbreakBench row id only, so the benchmark is referenced rather than redistributed. "
+        f"The excerpt is there so a label can be checked rather than taken on trust, which is the "
+        f"same reason this repo commits its steering generations.",
         "",
         "## Protocol deviations",
         "",
