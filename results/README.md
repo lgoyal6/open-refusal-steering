@@ -1,5 +1,27 @@
 # What is in results/
 
+## Post-training v2 (pre-registered, Rejected)
+
+| file | what it is |
+|---|---|
+| `posttraining-v2-manifest.json` | the frozen pre-registration. Written and committed before any training or held-out evaluation ran, and not edited afterwards. Every hash, seed, budget and threshold the study is held to. |
+| `posttraining-v2.json` | **canonical.** Every arm at every seed, the gate clause by clause, the control verdicts, the retained checks, resource use, and the implementation notes. |
+| `posttraining-v2-report.md` | the same run written for a reader: tables, the gate verdict, and what actually happened. |
+| `posttraining-v2-generations.jsonl` | 2,600 rows, one per prompt, arm and seed. Each carries the classifier label computed on the full generation and the first 220 characters of the text, which is the span `src/metrics.is_refusal` reads. Illicit prompts are referenced by JailbreakBench row id; their text is not committed. |
+
+The frozen splits themselves are **not** committed. They are deterministic from
+pinned dataset revisions plus the data seed, their sha256 hashes are in the
+manifest, and `src/pt2_prepare.py` re-derives and verifies them. Keeping them out
+avoids redistributing hh-rlhf rejected responses and a jailbreak benchmark from
+this repo.
+
+The verdict is **Rejected**: four of six frozen clauses fail. No number in these
+files supports a positive quality claim. `dpo-study-manifest.json` and
+`dpo-study.json` are the earlier v1 study, also a rejected record, superseded by
+these files.
+
+## The steering sweep
+
 Three separate runs are committed here, at three different sample sizes. They are
 not interchangeable, and the numbers in the top-level README come from exactly one
 of them. This file says which, so that nobody has to guess why one file says the
