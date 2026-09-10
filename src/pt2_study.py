@@ -1010,9 +1010,11 @@ def run_all(deviations: list[str]) -> dict:
             "training_wall_hours": training_wall / 3600.0,
             "evaluation_wall_hours": evaluation_wall / 3600.0,
             "completion_tokens_trained": tokens,
-            "peak_rss_mb": round(peak_rss_mb()),
+            # to the nearest 10 MB: the raw value drifts by a fraction of a MB
+            # between runs and carries no precision worth committing
+            "peak_rss_mb": round(peak_rss_mb() / 10) * 10,
             "peak_rss_caveat": (
-                "resident set size of the process that wrote this report, rounded. Arms restored "
+                "resident set size of the process that wrote this report, to the nearest 10 MB. Arms restored "
                 "from cache do not re-measure it, so on a resumed run this is the summarising "
                 "pass rather than the training peak. It also excludes MPS allocations, which live "
                 "in unified memory outside RSS, so it understates the real footprint either way. "
