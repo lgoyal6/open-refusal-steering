@@ -247,7 +247,7 @@
     "platform": "Linux-6.18.44-x86_64-with-glibc2.42",
     "precision": "float32",
     "python": "3.12.13",
-    "remote_compute_used": false,
+    "remote_compute_used": true,
     "shared_machine": true,
     "torch": "2.8.0+cu128"
   },
@@ -757,6 +757,15 @@
       "seed": null
     }
   },
+  "execution_boundary": {
+    "device": "CUDA (NVIDIA RTX A6000)",
+    "device_matches_manifest": false,
+    "device_type": "cuda",
+    "host": "kastner-ml",
+    "note": "boundary above is the pre-registered one from the manifest; this block describes the host that actually ran",
+    "platform": "Linux-6.18.44-x86_64-with-glibc2.42",
+    "pre_registered_device": "mps"
+  },
   "frozen_before_training_and_heldout_evaluation": true,
   "gate": {
     "arm": "dpo",
@@ -862,15 +871,17 @@
   ],
   "manifest": "results/posttraining-v2-manifest.json",
   "manifest_sha256": "0ca6883a96c984383c9b5b16abb536337366e46bdcd54349f4d010028e3078ae",
-  "protocol_deviations": [],
+  "protocol_deviations": [
+    "device: the manifest pins mps on the Apple M3 Pro laptop; this execution ran the identical frozen protocol on CUDA (NVIDIA RTX A6000) on kastner-ml at zero cost, from branch codex/posttraining-v2-cuda, as authorized by Laksh on 2026-09-09"
+  ],
   "resources": {
     "completion_tokens_trained": 765942,
     "cost_usd": 0,
     "device": "CUDA (NVIDIA RTX A6000)",
     "evaluation_wall_hours": 0.43269339698955367,
     "note": "wall hours are this process's own accounting; the machine was shared with other work",
-    "peak_rss_mb": 5.017940521240234,
-    "total_wall_hours": 1.1127051444791465,
+    "peak_rss_mb": 635.48046875,
+    "total_wall_hours": 4.718903581508332e-05,
     "training_wall_hours": 0.6645617943282963
   },
   "retained_checks": {
