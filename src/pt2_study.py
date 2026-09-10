@@ -210,6 +210,23 @@ class ReleaseMPSCache(TrainerCallback):
             release()
 
 
+class StopAtStep(TrainerCallback):
+    """Halt a run that is configured for the full budget, at a chosen step.
+
+    This is what an interruption actually is. Configuring a shorter run
+    instead would change the cosine schedule, because the schedule is built
+    over max_steps, so the two runs would diverge for a reason that has
+    nothing to do with checkpointing.
+    """
+
+    def __init__(self, step: int):
+        self.step = step
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.global_step >= self.step:
+            control.should_training_stop = True
+
+
 def training_args(kind: str, out: Path, seed: int, steps: int, per_device: int, grad_accum: int,
                   learning_rate: float, save_steps: int | None = None):
     common = dict(
@@ -548,7 +565,8 @@ def identical_pair_margin() -> dict:
 
 
 def sft_short(name: str, pairs: int, steps: int, learning_rate: float, seed: int,
-              resume: bool = False, save_steps: int | None = None) -> dict:
+              resume: bool = False, save_steps: int | None = None,
+              stop_at: int | None = None) -> dict:
     """One shortened-budget SFT run, used only by the retained training-path checks."""
     set_seed(seed)
     model, tokenizer = load_base()
@@ -557,8 +575,12 @@ def sft_short(name: str, pairs: int, steps: int, learning_rate: float, seed: int
                                  for p in formatted])
     out = BUDGET.adapters / name
     args = training_args("sft", out, seed, steps, 1, 1, learning_rate, save_steps=save_steps)
+    callbacks = [ReleaseMPSCache()]
+    if stop_at is not None:
+        callbacks.append(StopAtStep(stop_at))
     trainer = SFTTrainer(model=model, args=args, train_dataset=dataset,
-                         processing_class=tokenizer, peft_config=lora_config())
+                         processing_class=tokenizer, peft_config=lora_config(),
+                         callbacks=callbacks)
     result = trainer.train(resume_from_checkpoint=True if resume else None)
     losses = [entry["loss"] for entry in trainer.state.log_history if "loss" in entry]
     del trainer, model
@@ -586,9 +608,11 @@ def retained_checks() -> dict:
                               resume_spec["learning_rate"], resume_spec["seed"])
         log(f"retained check: interrupt at step {stop}, then resume to {total}")
         shutil.rmtree(BUDGET.adapters / "resume-interrupted", ignore_errors=True)
-        interrupted = sft_short("resume-interrupted", resume_spec["pairs"], stop,
+        # configured for the full budget, then halted: same schedule as the
+        # reference run, which is what makes the comparison meaningful
+        interrupted = sft_short("resume-interrupted", resume_spec["pairs"], total,
                                 resume_spec["learning_rate"], resume_spec["seed"],
-                                save_steps=stop)
+                                save_steps=stop, stop_at=stop)
         resumed = sft_short("resume-interrupted", resume_spec["pairs"], total,
                             resume_spec["learning_rate"], resume_spec["seed"],
                             resume=True, save_steps=stop)
@@ -745,8 +769,13 @@ def clause_table(gate: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
+def joined(rows: list[dict], key: str, places: int = 2) -> str:
+    return ", ".join(f"{row[key]:.{places}f}" for row in rows)
+
+
 def write_report(report: dict) -> None:
     gate, controls = report["gate"], report["controls"]
+    dpo_rows = report["evaluation"]["arms"]["dpo"]
     base = report["evaluation"]["base"]
     env = report["environment"]
     verdict = gate["verdict"]
@@ -790,6 +819,34 @@ def write_report(report: dict) -> None:
         f"response exceeds the rejected one; the interval is a seeded {P.BOOTSTRAP['resamples']}-resample",
         "percentile bootstrap over pairs. `margin mean` is the DPO implicit reward margin against the",
         "base reference policy.",
+        "",
+        "## What actually happened",
+        "",
+        f"DPO did move refusal behaviour, and it cleared the refusal-recall threshold. Illicit "
+        f"refusal recall went from {base['illicit_refusal_recall']:.2f} at base to "
+        f"{joined(dpo_rows, 'illicit_refusal_recall')} across the three seeds, and the implicit "
+        f"reward margin against the base reference is large "
+        f"({joined(dpo_rows, 'implicit_reward_margin_mean')}). The preference signal was learned.",
+        "",
+        f"It was learned as a blanket refusal policy rather than as a preference. Benign "
+        f"over-refusal, on prompts a well-calibrated assistant should answer, went from "
+        f"{base['benign_over_refusal']:.2f} at base to "
+        f"{joined(dpo_rows, 'benign_over_refusal')}, against a frozen budget of "
+        f"+{P.THRESHOLDS['benign_over_refusal_increase_over_base_max']}. Held-out preference "
+        f"accuracy barely moved: {base['heldout_preference_accuracy']:.3f} at base against "
+        f"{joined(dpo_rows, 'heldout_preference_accuracy', 3)}. The model did not get better at "
+        f"ranking one response above another, it got more willing to refuse anything. ARC-Easy "
+        f"fell from {base['arc_easy_accuracy']:.3f} to "
+        f"{joined(dpo_rows, 'arc_easy_accuracy', 3)}, against a budget of "
+        f"{P.THRESHOLDS['capability_accuracy_drop_from_base_max']}.",
+        "",
+        "The two controls are what make that reading safe rather than a story. The shuffled-label "
+        "arm reached a training loss comparable to real DPO, which is exactly why it is here: at "
+        "this budget the objective falls about as far on noise labels as on real ones, so training "
+        "loss proves nothing. On held-out data that arm moved refusal recall by a point or two and "
+        "failed every clause, so the refusal shift in the DPO arm does come from the real labels. "
+        "The identical-pair arm reproduced the base row on every metric, which is what an arm with "
+        "no gradient must do.",
         "",
         f"## Gate, clause by clause (arm `{gate['arm']}`)",
         "",
@@ -943,9 +1000,12 @@ def run_all(deviations: list[str]) -> dict:
         },
         "retained_checks": checks,
         "resources": {
-            "total_wall_hours": (time.perf_counter() - started) / 3600.0,
+            # summed from the per-arm records, so a resumed run reports the compute
+            # the study actually cost rather than the length of its last pass
+            "total_wall_hours": (training_wall + evaluation_wall) / 3600.0,
             "training_wall_hours": training_wall / 3600.0,
             "evaluation_wall_hours": evaluation_wall / 3600.0,
+            "final_pass_wall_seconds": time.perf_counter() - started,
             "completion_tokens_trained": tokens,
             "peak_rss_mb": peak_rss_mb(),
             "device": device_name(),
@@ -970,7 +1030,24 @@ def run_all(deviations: list[str]) -> dict:
             "model, so this is exact rather than an approximation. Measured on this host over "
             "three DPO steps at seed 11: losses 0.6931, 0.6931, 0.7192 both ways, a difference of "
             "exactly 0.0, and twice as fast. Also absent from the frozen manifest, and also not a "
-            "protocol deviation."],
+            "protocol deviation.",
+            "The checkpoint-resume check was wrong on its first run and was fixed. It had built the "
+            "interrupted run with max_steps=8 against a 16-step reference, and the cosine schedule "
+            "is computed over max_steps, so the two runs saw different learning rates from the "
+            "warmup onwards and diverged at step 3, before any interruption. That is not what the "
+            "frozen recipe says: the manifest asks for a run 'stopped at step 8' out of 16. The "
+            "interrupted run is now configured for the full 16 steps and halted at 8 by a callback, "
+            "which is what an interruption is. Fixing the harness to match the frozen recipe is a "
+            "defect fix, not a protocol change; the recipe and the 0.05 tolerance are unchanged. "
+            "Before the fix the check reported a 0.0927 loss delta and FAILED; after it, 0.0029.",
+            "Training on this host is deterministic, which is what made the above diagnosable. Two "
+            "uninterrupted 16-step runs at seed 11 produced bit-identical loss paths, largest "
+            "difference exactly 0.0, so the divergence could not be blamed on MPS nondeterminism.",
+            "The DPO seed 11 arm was trained before the allocator-cache fix and its wall time, "
+            "3714 s, reflects a machine that was paging; the same arm's siblings took 674 s and "
+            "693 s afterwards. Its adapter and every metric derived from it are unaffected, because "
+            "releasing an allocator cache cannot change a gradient. Only the wall-time column is "
+            "not comparable across that one arm."],
         "claim_state": "Resume-safe" if (gate["passed"] and controls["study_valid"]) else "Rejected",
     }
     REPORT_JSON.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
