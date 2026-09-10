@@ -12,7 +12,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-PYTHON=.venv/bin/python
+PYTHON=${PYTHON:-.venv/bin/python}
 
 say() {
   printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$1"
@@ -20,7 +20,7 @@ say() {
 
 say "interpreter $(pwd)/${PYTHON}"
 "${PYTHON}" --version
-"${PYTHON}" -c "import torch; print('torch', torch.__version__, 'mps available', torch.backends.mps.is_available())"
+"${PYTHON}" -c "import torch; print('torch', torch.__version__, 'mps available', torch.backends.mps.is_available(), 'cuda available', torch.cuda.is_available())"
 
 # The v1 study's splits are gitignored and its committed tests verify them, so
 # re-derive them from the same pinned revisions before running the suite.
