@@ -33,7 +33,7 @@ from pathlib import Path
 import torch
 from datasets import Dataset
 from peft import LoraConfig, PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed
+from transformers import AutoModelForCausalLM, AutoTokenizer, TrainerCallback, set_seed
 from trl import DPOConfig, DPOTrainer, SFTConfig, SFTTrainer
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -195,6 +195,21 @@ def cached(name: str, compute):
 
 # --- training ---------------------------------------------------------------
 
+class ReleaseMPSCache(TrainerCallback):
+    """Drop the MPS allocator's cached blocks every few steps.
+
+    Sequence lengths vary from batch to batch, so the allocator keeps a cached
+    block per distinct shape and its pool grows monotonically through an arm.
+    On a shared machine that turns into paging, and the step time degrades
+    within a single arm even when nothing else changes. Releasing the cache is
+    numerically inert: it frees blocks that hold no live tensor.
+    """
+
+    def on_step_end(self, args, state, control, **kwargs):
+        if state.global_step % 10 == 0:
+            release()
+
+
 def training_args(kind: str, out: Path, seed: int, steps: int, per_device: int, grad_accum: int,
                   learning_rate: float, save_steps: int | None = None):
     common = dict(
@@ -259,13 +274,15 @@ def train_arm(arm: str, seed: int) -> dict:
             args = training_args("sft", out, seed, BUDGET.steps, BUDGET.per_device,
                                  BUDGET.grad_accum, P.TRAINING["learning_rate"])
             trainer = SFTTrainer(model=model, args=args, train_dataset=dataset,
-                                 processing_class=tokenizer, peft_config=lora_config())
+                                 processing_class=tokenizer, peft_config=lora_config(),
+                                 callbacks=[ReleaseMPSCache()])
         else:
             dataset = Dataset.from_list(pairs)
             args = training_args("dpo", out, seed, BUDGET.steps, BUDGET.per_device,
                                  BUDGET.grad_accum, P.TRAINING["learning_rate"])
             trainer = DPOTrainer(model=model, ref_model=None, args=args, train_dataset=dataset,
-                                 processing_class=tokenizer, peft_config=lora_config())
+                                 processing_class=tokenizer, peft_config=lora_config(),
+                                 callbacks=[ReleaseMPSCache()])
         result = trainer.train()
         trainer.save_model(str(out / "final"))
         losses = [entry["loss"] for entry in trainer.state.log_history if "loss" in entry]
