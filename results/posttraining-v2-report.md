@@ -92,7 +92,7 @@ The two controls are what make that reading safe rather than a story. The shuffl
 
 - Wall time 3.80 h (2.83 h training, 0.98 h evaluation).
 - Completion tokens trained across all arms and seeds: 765,942.
-- Peak RSS 379 MB. Device Apple Metal (MPS). Cost 0 USD.
+- Peak RSS 379 MB, which understates the real footprint: MPS allocations live in unified memory outside RSS, and arms restored from cache do not re-measure it. Device Apple Metal (MPS). Cost 0 USD.
 
 ## Generations
 

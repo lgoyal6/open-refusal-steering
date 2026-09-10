@@ -890,8 +890,9 @@ def write_report(report: dict) -> None:
         f"{report['resources']['evaluation_wall_hours']:.2f} h evaluation).",
         f"- Completion tokens trained across all arms and seeds: "
         f"{report['resources']['completion_tokens_trained']:,}.",
-        f"- Peak RSS {report['resources']['peak_rss_mb']:.0f} MB. Device {env['device']}. "
-        f"Cost {env['cost_usd']} USD.",
+        f"- Peak RSS {report['resources']['peak_rss_mb']:.0f} MB, which understates the real "
+        f"footprint: MPS allocations live in unified memory outside RSS, and arms restored from "
+        f"cache do not re-measure it. Device {env['device']}. Cost {env['cost_usd']} USD.",
         "",
         "## Generations",
         "",
@@ -1008,9 +1009,14 @@ def run_all(deviations: list[str]) -> dict:
             "total_wall_hours": (training_wall + evaluation_wall) / 3600.0,
             "training_wall_hours": training_wall / 3600.0,
             "evaluation_wall_hours": evaluation_wall / 3600.0,
-            "final_pass_wall_seconds": time.perf_counter() - started,
             "completion_tokens_trained": tokens,
-            "peak_rss_mb": peak_rss_mb(),
+            "peak_rss_mb": round(peak_rss_mb()),
+            "peak_rss_caveat": (
+                "resident set size of the process that wrote this report, rounded. Arms restored "
+                "from cache do not re-measure it, so on a resumed run this is the summarising "
+                "pass rather than the training peak. It also excludes MPS allocations, which live "
+                "in unified memory outside RSS, so it understates the real footprint either way. "
+                "The number to trust for memory pressure is in the implementation notes."),
             "device": device_name(),
             "cost_usd": 0,
             "note": "wall hours are this process's own accounting; the machine was shared with other work",

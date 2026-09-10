@@ -871,9 +871,9 @@
     "cost_usd": 0,
     "device": "Apple Metal (MPS)",
     "evaluation_wall_hours": 0.9750553435991687,
-    "final_pass_wall_seconds": 0.04605179198551923,
     "note": "wall hours are this process's own accounting; the machine was shared with other work",
-    "peak_rss_mb": 379.390625,
+    "peak_rss_caveat": "resident set size of the process that wrote this report, rounded. Arms restored from cache do not re-measure it, so on a resumed run this is the summarising pass rather than the training peak. It also excludes MPS allocations, which live in unified memory outside RSS, so it understates the real footprint either way. The number to trust for memory pressure is in the implementation notes.",
+    "peak_rss_mb": 379,
     "total_wall_hours": 3.804970460683051,
     "training_wall_hours": 2.8299151170838823
   },
