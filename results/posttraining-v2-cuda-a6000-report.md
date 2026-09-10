@@ -82,9 +82,9 @@ base reference policy.
 
 ## Resource use
 
-- Wall time 1.11 h (0.66 h training, 0.43 h evaluation).
+- Wall time 0.00 h (0.66 h training, 0.43 h evaluation).
 - Completion tokens trained across all arms and seeds: 765,942.
-- Peak RSS 5 MB. Device CUDA (NVIDIA RTX A6000). Cost 0 USD.
+- Peak RSS 635 MB. Device CUDA (NVIDIA RTX A6000). Cost 0 USD.
 
 ## Generations
 
@@ -92,7 +92,9 @@ base reference policy.
 
 ## Protocol deviations
 
-None. No split, prompt, threshold, or hyperparameter changed after the freeze.
+- device: the manifest pins mps on the Apple M3 Pro laptop; this execution ran the identical frozen protocol on CUDA (NVIDIA RTX A6000) on kastner-ml at zero cost, from branch codex/posttraining-v2-cuda, as authorized by Laksh on 2026-09-09
+
+Because at least one pinned choice changed after the freeze, this study is no longer cleanly pre-registered. The original manifest hash is retained above.
 
 ## Implementation notes
 
