@@ -7,7 +7,76 @@ the model stops producing language.
 
 # open-refusal-steering
 
-## Small DPO post-training study
+## Post-training v2: a pre-registered DPO study
+
+`scripts/run-posttraining-study-v2.sh` runs a pre-registered DPO study on
+Qwen2.5-0.5B-Instruct, locally, on Apple MPS, at zero cost. **The frozen gate
+rejects it**, and the interesting part is why.
+
+The point of the study is the pre-registration.
+`results/posttraining-v2-manifest.json` was written and committed *before any
+training or held-out evaluation ran*. It pins the model revision, the three
+dataset revisions and their selection rules, the split sizes, a sha256 for every
+frozen split file, the data seed and the three training seeds, the LoRA shape,
+the optimiser schedule, the equal 128-step budget every trained arm gets, the
+generation and bootstrap configs, and the six success thresholds verbatim.
+Re-freezing is refused once the manifest exists, and the study refuses to run if
+any frozen hash or protocol constant has drifted from it.
+
+Five arms at seeds 11, 22 and 33, every trained arm on the identical budget:
+untouched base, LoRA SFT on the chosen responses, LoRA DPO, a shuffled-label
+control whose labels are swapped for a seeded random half of the pairs, and an
+identical-pair control where `chosen == rejected`. The last two must fail; if
+either passes the gate the study reports itself invalid instead of reporting a
+result.
+
+**What happened.** DPO learned the preference signal: the implicit reward margin
+against base is 0.42 to 0.45, and illicit refusal recall rises from 0.72 to
+0.94, 0.97, 0.96, clearing the clause that asked for a 0.20 improvement. It
+learned it as a blanket refusal policy. Benign over-refusal, measured on this
+repo's own 100 prompts that a well-calibrated assistant should answer, rises
+from 0.10 to 0.43, 0.66, 0.55 against a frozen budget of 0.05. Held-out
+preference accuracy barely moves, 0.594 at base against 0.594, 0.602, 0.602.
+ARC-Easy falls from 0.535 to 0.495 against a budget of 0.02.
+
+| arm | pref acc | illicit refusal | benign over-refusal | ARC-Easy |
+|---|---:|---:|---:|---:|
+| base | 0.594 | 0.720 | 0.100 | 0.535 |
+| sft | 0.570 / 0.578 / 0.578 | 0.580 / 0.570 / 0.750 | 0.100 / 0.130 / 0.150 | 0.500 / 0.500 / 0.505 |
+| **dpo** | 0.594 / 0.602 / 0.602 | 0.940 / 0.970 / 0.960 | **0.430 / 0.660 / 0.550** | 0.495 |
+| shuffled | 0.586 / 0.586 / 0.594 | 0.730 / 0.540 / 0.730 | 0.040 / 0.030 / 0.170 | 0.530 / 0.530 / 0.485 |
+| identical | 0.594 | 0.720 / 0.710 / 0.720 | 0.100 | 0.535 |
+
+This is the same failure the steering study below documents, reached by a
+different route: the headline axis moves, and it moves because the model got
+worse. Refusal recall is the easy axis, and you can max it by refusing
+everything.
+
+**The controls are what make that reading safe.** The shuffled-label arm reached
+a training loss comparable to real DPO, 0.25 to 0.38 against 0.26 to 0.38, which
+is exactly why it is there: at this budget the objective falls about as far on
+noise labels as on real ones, so training loss proves nothing. On held-out data
+it failed all six clauses, so the refusal shift in the DPO arm does come from the
+real labels. The identical-pair arm held its loss at exactly 0.6931 for all 128
+steps and reproduced the base row on every metric, and its preference margin is
+exactly 0.0 including under reversed batch order.
+
+Artifacts: `results/posttraining-v2-manifest.json` (the frozen
+pre-registration), `results/posttraining-v2.json` (every arm and seed, the gate
+clause by clause, controls, resources), `results/posttraining-v2-report.md`, and
+`results/posttraining-v2-generations.jsonl` (2,600 rows: one per prompt, arm and
+seed, with the label and the 220-character span the classifier reads).
+
+3.80 h on one Apple M3 Pro, 765,942 completion tokens trained, peak RSS 379 MB,
+cost 0. This is DPO (trl `DPOTrainer`, sigmoid loss); it is not PPO and it is not
+RLHF, and no reward model is trained. One model, one host, greedy decoding, and a
+substring refusal classifier rather than an LLM judge panel. Every number above
+is measured on this machine, not projected.
+
+## Small DPO post-training study (v1, superseded)
+
+The study below is the earlier, rejected record. It is left unchanged; v2 does
+not reuse any of its numbers.
 
 `scripts/run-dpo-study.sh` freezes pinned public preference and ARC-Easy
 splits, verifies their hashes and leakage controls, then runs four local arms on
