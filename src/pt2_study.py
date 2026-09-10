@@ -948,7 +948,11 @@ def write_report(report: dict) -> None:
 # --- driver -----------------------------------------------------------------
 
 def peak_rss_mb() -> float:
-    return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 * 1024)
+    # ru_maxrss is bytes on macOS and kibibytes on Linux.
+    maxrss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    if sys.platform == "darwin":
+        return maxrss / (1024 * 1024)
+    return maxrss / 1024
 
 
 def run_all(deviations: list[str]) -> dict:
@@ -993,10 +997,22 @@ def run_all(deviations: list[str]) -> dict:
         "manifest_sha256": P.digest(P.MANIFEST),
         "frozen_before_training_and_heldout_evaluation": True,
         "boundary": P.BOUNDARY,
+        "execution_boundary": {
+            "note": "boundary above is the pre-registered one from the manifest; this block "
+                    "describes the host that actually ran",
+            "device": device_name(),
+            "device_type": device().type,
+            "pre_registered_device": P.TRAINING["device"],
+            "device_matches_manifest": device().type == P.TRAINING["device"],
+            "host": platform.node(),
+            "platform": platform.platform(),
+        },
         "environment": {
             "device": device_name(), "platform": platform.platform(), "torch": torch.__version__,
             "python": platform.python_version(), "precision": P.TRAINING["precision"],
-            "cost_usd": 0, "shared_machine": True, "remote_compute_used": False,
+            "cost_usd": 0, "shared_machine": True,
+            # "remote" means not the pre-registered laptop device; the manifest pins MPS.
+            "remote_compute_used": device().type != P.TRAINING["device"],
             "interpreter": sys.executable,
         },
         "training": training,
