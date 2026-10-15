@@ -1,0 +1,13 @@
+{
+  "protocol_version": 1,
+  "status": "protocol_only_not_executed",
+  "arms": ["no_intervention", "random_feature_control", "selected_feature"],
+  "strengths": [],
+  "decoding": {"deterministic_and_sampled_are_separate": true, "seed_required": true},
+  "split_keys": ["task_family", "model_revision"],
+  "required_record_fields": ["case_id", "split", "arm", "strength", "model_revision", "prompt_hash", "response", "finish_reason", "independent_success", "degeneration_flags"],
+  "required_outcomes": ["independent_task_success", "refusal_quality", "degenerate_response_rate", "capability_regression", "latency", "peak_memory"],
+  "adjudication": "blind_to_arm",
+  "human_labels": "not_collected",
+  "model_or_hardware_access": "not_authorized_or_not_available"
+}
